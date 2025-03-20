@@ -1,5 +1,6 @@
 package com.epam.training.gen.ai.controller;
 
+import com.epam.training.gen.ai.model.response.Messages;
 import com.epam.training.gen.ai.service.SemanticKernelService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -11,7 +12,7 @@ public class SemanticKerneliController {
     SemanticKernelService semanticKernelService;
 
     @GetMapping("/generateContent")
-    public String generateContent(@RequestParam String prompt)  {
-        return semanticKernelService.generateAIChatContent(prompt);
+    public Messages generateContent(@RequestParam String prompt)  {
+        return semanticKernelService.generateAIChatContents(prompt);
     }
 }

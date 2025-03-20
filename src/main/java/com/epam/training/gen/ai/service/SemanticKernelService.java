@@ -1,87 +1,49 @@
 package com.epam.training.gen.ai.service;
 
-import com.epam.training.gen.ai.client.SemanticKernelClient;
-import com.epam.training.gen.ai.constants.Constants;
-import com.epam.training.gen.ai.model.request.ChatContent;
-import com.epam.training.gen.ai.model.request.Message;
-import com.epam.training.gen.ai.model.response.SemanticKernelResponse;
-import com.epam.training.gen.ai.model.response.ChatCompletion;
 import com.epam.training.gen.ai.model.response.Messages;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
+import com.microsoft.semantickernel.Kernel;
+import com.microsoft.semantickernel.services.chatcompletion.AuthorRole;
+import com.microsoft.semantickernel.services.chatcompletion.ChatCompletionService;
+import com.microsoft.semantickernel.services.chatcompletion.ChatMessageContent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @Service
 @Slf4j
+@PropertySource("classpath:/config/application.properties")
 public class SemanticKernelService {
+    private static final String DEFAULT_MESSAGE = "No response from Chat service";
+    private final Kernel kernel;
+    private final ChatCompletionService chatCompletionService;
 
-    @Autowired
-    SemanticKernelClient semanticKernelClient;
-    ObjectMapper objectMapper = new ObjectMapper();
-
-    public String generateAIChatContent(String prompt)  {
-        String requestPayload;
-        try {
-            requestPayload = objectMapper.writeValueAsString(mapRequest(prompt));
-            log.info("Request payload: {}", requestPayload);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-
-        ChatCompletion chatCompletion = mapClientResponse(semanticKernelClient.getResponse(requestPayload));
-        return generateApiResponse(chatCompletion, prompt);
+    public Messages generateAIChatContents(String prompt)  {
+        return chatCompletionService.getChatMessageContentsAsync(prompt, kernel, null)
+                .map(chatContent -> chatContent.stream()
+                        .filter(chatMessage -> chatMessage.getAuthorRole() == AuthorRole.ASSISTANT)
+                        .map(chat -> buildChatResposne(prompt, formatMessage(chat.getContent())))
+                        .filter(Objects::nonNull)
+                        .findFirst()
+                        .orElse(buildChatResposne(prompt, DEFAULT_MESSAGE))
+                )
+                .block();
     }
 
-    public ChatContent mapRequest(String prompt)  {
-        ArrayList<Message> messageList = new ArrayList<>();
-        ChatContent chatContent = new ChatContent();
-        Message message = Message.builder()
-                .role(Constants.INPUT_ROLE)
-                .content(prompt)
+   private Messages buildChatResposne(String prompt, String outputMessage) {
+        return Messages.builder()
+                .inputRole(AuthorRole.USER.toString())
+                .inputMessage(formatMessage(prompt))
+                .outputRole(AuthorRole.ASSISTANT.toString())
+                .outputMessage(outputMessage != null ? outputMessage : DEFAULT_MESSAGE)
                 .build();
-        messageList.add(message);
-        chatContent.setMessages(messageList);
-        return chatContent;
     }
 
-
-    private ChatCompletion mapClientResponse(String clientResponse) {
-        ChatCompletion chatCompletion;
-        try {
-            chatCompletion = objectMapper.readValue(clientResponse, ChatCompletion.class);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-        return chatCompletion;
+    public String formatMessage(String message) {
+        return Objects.nonNull(message) ? message.trim().replace("\n"," ").replace("\"","") : StringUtils.EMPTY;
     }
-
-    private String generateApiResponse(ChatCompletion chatCompletion, String prompt) {
-        Messages messages = Messages.builder()
-                .inputRole(Constants.INPUT_ROLE)
-                .inputMessage(prompt)
-                .outputRole(chatCompletion.getChoices().get(0).getMessage().getRole())
-                .outputMessage(chatCompletion.getChoices().get(0).getMessage().getContent())
-                .build();
-
-        SemanticKernelResponse apiResponse = SemanticKernelResponse.builder()
-                .id(chatCompletion.getId())
-                .created(chatCompletion.getCreated())
-                .messages(messages)
-                .build();
-
-        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
-        try {
-            return ow.writeValueAsString(apiResponse);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
 }
