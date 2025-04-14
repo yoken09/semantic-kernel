@@ -26,11 +26,15 @@ import java.util.stream.Collectors;
 @Slf4j
 @PropertySource("classpath:/config/application.properties")
 public class SemanticKernelService {
+    public static final String GPT_35_TURBO = "gpt-35-turbo";
     private final Kernel kernel;
     private final ChatCompletionService chatCompletionService;
     private final ChatHistory history;
     @Value("${client-openai-deployment-name}")
     private String modelId;
+
+    @Value("${client-openai-multi-model-name}")
+    private String multiModelNames;
 
     private static final String DEFAULT_MESSAGE = "No response received from Chat service";
 
@@ -49,7 +53,7 @@ public class SemanticKernelService {
     }
 
      public ChatResponse getChatBotResponseUsingPrompt(PromptRequest promptRequest) {
-        List<ChatMessageContent<?>> response = null;
+             List<ChatMessageContent<?>> response = null;
          String chatResponse = StringUtils.EMPTY;
          PromptExecutionSettings settings = getPromptExecutionSettings(promptRequest);
          history.addUserMessage(promptRequest.getPrompt());
@@ -77,13 +81,50 @@ public class SemanticKernelService {
         return buildChatResponse(promptRequest.getPrompt(), chatResponse);
     }
 
+    public ChatResponse getChatBotResponseUsingMultiModel(PromptRequest promptRequest) {
+        List<ChatMessageContent<?>> response = null;
+        String chatResponse = StringUtils.EMPTY;
+        PromptExecutionSettings settings = getPromptExecutionSettings(promptRequest);
+        history.addUserMessage(promptRequest.getPrompt());
+
+        try {
+            response = chatCompletionService.getChatMessageContentsAsync(history,
+                            kernel, InvocationContext.builder().withPromptExecutionSettings(settings).build())
+                    .onErrorMap(ex -> new Exception(ex.getMessage()))
+                    .block();
+        } catch (Exception ex) {
+            log.error("Exception while retrieving chat response : {} ", ex.getMessage());
+            throw new RuntimeException("Error occurred while retrieving chat response {} ", ex);
+        }
+
+        if (ObjectUtils.isNotEmpty(response)) {
+            chatResponse = response.stream()
+                    .map(ChatMessageContent::getContent)
+                    .collect(Collectors.joining(" "));
+            log.info("Received chat response: {} ", response);
+        } else {
+            log.warn(DEFAULT_MESSAGE);
+            throw new RuntimeException("No response received for the request from the chat service");
+        }
+
+        return buildChatResponse(promptRequest.getPrompt(), chatResponse);
+    }
+
+
     private PromptExecutionSettings getPromptExecutionSettings(PromptRequest promptRequest) {
         PromptExecutionSettings settings = PromptExecutionSettings.builder()
-                .withModelId(modelId)
+                .withModelId(getModelId(promptRequest.getModel(), modelId))
                 .withMaxTokens(promptRequest.getMaxTokens())
                 .withTemperature(promptRequest.getTemperature())
                 .build();
         return settings;
+    }
+
+    private String getModelId(String model, String modelId) {
+        if (StringUtils.isNotEmpty(model) && multiModelNames.contains(model))  {
+            return model;
+        }
+        return GPT_35_TURBO;
     }
 
     private ChatResponse buildChatResponse(String prompt, String outputMessage) {
