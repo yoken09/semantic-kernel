@@ -10,6 +10,6 @@ public class PromptRequest {
     private Double temperature;
     private Integer maxTokens;
     private String model;
-
+    private boolean evaluate;
 }
 
