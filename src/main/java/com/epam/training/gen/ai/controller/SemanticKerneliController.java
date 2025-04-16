@@ -28,4 +28,16 @@ public class SemanticKerneliController {
         }
     }
 
+    @PostMapping(path = "/chat/multi-model")
+    public ResponseEntity<String> multiModelResponse(@RequestBody PromptRequest promptRequest){
+        try {
+            if (promptRequest.isEvaluate()) {
+                return ResponseEntity.ok(semanticKernelService.getChatBotResponseUsingMultiModel(promptRequest));
+            } else {
+                return ResponseEntity.ok(semanticKernelService.getChatBotResponseUsingSingleModel(promptRequest));
+            }
+        } catch (HttpResponseException exception) {
+            throw new RuntimeException();
+        }
+    }
 }
