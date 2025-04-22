@@ -2,9 +2,7 @@ package com.epam.training.gen.ai.controller;
 
 import com.azure.core.exception.HttpResponseException;
 import com.epam.training.gen.ai.model.request.PromptRequest;
-import com.epam.training.gen.ai.model.request.UserRequest;
 import com.epam.training.gen.ai.model.response.ChatResponse;
-import com.epam.training.gen.ai.service.NavigationService;
 import com.epam.training.gen.ai.service.PostalPluginService;
 import com.epam.training.gen.ai.service.SemanticKernelService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,9 +22,6 @@ public class SemanticKerneliController {
 
     @Autowired
     PostalPluginService postalPluginService;
-
-    private static final String INPUT_KEY = "input";
-    private static final String TEMPERATURE_KEY = "temperature";
 
     @GetMapping("/generateContent")
     public ChatResponse generateContent(@RequestParam String prompt)  {
