@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class Messages {
+public class ChatResponse {
     private String inputRole;
     private String inputMessage;
     private String outputRole;

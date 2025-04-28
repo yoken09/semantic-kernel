@@ -8,5 +8,5 @@ import lombok.Data;
 public class SemanticKernelResponse {
     private String id;
     private float created;
-    private Messages messages;
+    private ChatResponse messages;
 }
